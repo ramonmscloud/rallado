@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Hojas con Cajas 5x5</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .preview {
+            border: 1px solid #ddd;
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: white;
+            height: 500px;
+            overflow: auto;
+        }
+        
+        #previewCanvas {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Generador de Hojas con Cajas 5x5</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="lineColor">Color de las líneas:</label>
+                <input type="color" id="lineColor" value="#ff6666">
+            </div>
+            
+            <div class="control-group">
+                <label for="lineWidth">Grosor de las líneas:</label>
+                <input type="range" id="lineWidth" min="0.5" max="2" step="0.1" value="0.7">
+                <span id="lineWidthValue">0.7</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="numRows">Número de filas de cajas:</label>
+                <input type="number" id="numRows" min="1" max="6" value="5">
+            </div>
+            
+            <div class="control-group">
+                <label for="boxSize">Tamaño de las cajas (mm):</label>
+                <input type="number" id="boxSize" min="20" max="40" value="30">
+            </div>
+            
+            <div class="control-group">
+                <label for="includeHeader">Incluir espacio para nombre y fecha:</label>
+                <select id="includeHeader">
+                    <option value="true">Sí</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+        </div>
+        
+        <button id="generatePDF">Generar PDF</button>
+        
+        <h2>Vista previa:</h2>
+        <div class="preview">
+            <canvas id="previewCanvas" width="595" height="842"></canvas>
+        </div>
+        
+        <footer>
+            Generador de Hojas de Práctica - Formato de página A4 (21 x 29,7 cm)
+        </footer>
+    </div>
+    
+    <script>
+        // Esperar a que carguen las bibliotecas
+        window.onload = function() {
+            const { jsPDF } = window.jspdf;
+            
+            // Referencia al canvas de vista previa
+            const canvas = document.getElementById('previewCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Elementos de control
+            const lineColorInput = document.getElementById('lineColor');
+            const lineWidthInput = document.getElementById('lineWidth');
+            const lineWidthValue = document.getElementById('lineWidthValue');
+            const numRowsInput = document.getElementById('numRows');
+            const boxSizeInput = document.getElementById('boxSize');
+            const includeHeaderSelect = document.getElementById('includeHeader');
+            
+            // Actualizar valor mostrado del grosor de línea
+            lineWidthInput.addEventListener('input', function() {
+                lineWidthValue.textContent = this.value;
+                updatePreview();
+            });
+            
+            // Actualizar vista previa cuando cambian los controles
+            lineColorInput.addEventListener('input', updatePreview);
+            numRowsInput.addEventListener('input', updatePreview);
+            boxSizeInput.addEventListener('input', updatePreview);
+            includeHeaderSelect.addEventListener('change', updatePreview);
+            
+            // Función para dibujar una caja 5x5
+            function drawBox5x5(ctx, x, y, width, height) {
+                // Marco exterior
+                ctx.strokeRect(x, y, width, height);
+                
+                // Líneas verticales interiores (4 líneas para crear 5 columnas)
+                const cellWidth = width / 5;
+                for (let i = 1; i < 5; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x + i * cellWidth, y);
+                    ctx.lineTo(x + i * cellWidth, y + height);
+                    ctx.stroke();
+                }
+                
+                // Líneas horizontales interiores (4 líneas para crear 5 filas)
+                const cellHeight = height / 5;
+                for (let i = 1; i < 5; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y + i * cellHeight);
+                    ctx.lineTo(x + width, y + i * cellHeight);
+                    ctx.stroke();
+                }
+            }
+            
+            // Función para dibujar la página con cajas 4x4
+            function drawPage(ctx, options) {
+                const { lineColor, lineWidth, numRows, boxSize, includeHeader } = options;
+                
+                // Limpiar canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Establecer estilo de líneas
+                ctx.strokeStyle = lineColor;
+                ctx.lineWidth = lineWidth;
+                
+                // Variables para posicionamiento
+                const pageWidth = 595; // Ancho A4 en puntos
+                const pageHeight = 842; // Alto A4 en puntos
+                const margin = 50; // Margen en puntos
+                const availableWidth = pageWidth - 2 * margin;
+                
+                // Convertir tamaño de caja de mm a puntos (1 mm ≈ 2.83 puntos)
+                const boxSizePts = boxSize * 2.83;
+                
+                // Espacio para el encabezado si está activado
+                let startY = margin;
+                
+                if (includeHeader) {
+                    // Dibujar área para nombre y fecha
+                    ctx.fillStyle = "#f8f8f8";
+                    ctx.fillRect(margin, margin, availableWidth, 40);
+                    ctx.strokeStyle = "#dddddd";
+                    ctx.strokeRect(margin, margin, availableWidth, 40);
+                    
+                    // Texto para nombre y fecha
+                    ctx.fillStyle = "#999999";
+                    ctx.font = "14px Arial";
+                    ctx.fillText("Nombre: ___________________________", margin + 10, margin + 25);
+                    ctx.fillText("Fecha: ______________", margin + availableWidth - 150, margin + 25);
+                    
+                    // Restaurar estilo de línea para las cajas
+                    ctx.strokeStyle = lineColor;
+                    
+                    // Actualizar posición inicial después del encabezado
+                    startY = margin + 60;
+                }
+                
+                // Espacio entre elementos igual a la altura de la caja
+                const spacing = boxSizePts;
+
+                // El ancho de cada caja debe ser igual a su altura para que sean cuadradas
+                const boxWidth = boxSizePts;
+
+                // Calcular cuántas cajas caben por fila con el nuevo ancho cuadrado
+                const numBoxesPerRow = Math.floor((availableWidth + spacing) / (boxWidth + spacing));
+                
+                // Altura total disponible
+                const maxRows = Math.min(numRows, Math.floor((pageHeight - startY - margin) / (boxSizePts + spacing)));
+                
+                // Dibujar las filas de cajas
+                for (let row = 0; row < maxRows; row++) {
+                    const y = startY + row * (boxSizePts + spacing);
+                    
+                    // Calcular el espacio total que ocuparán las cajas
+                    const totalWidth = numBoxesPerRow * boxWidth + (numBoxesPerRow - 1) * spacing;
+                    // Calcular el margen extra para centrar las cajas
+                    const extraMargin = (availableWidth - totalWidth) / 2;
+                    
+                    // Dibujar las cajas en esta fila
+                    for (let col = 0; col < numBoxesPerRow; col++) {
+                        const x = margin + extraMargin + col * (boxWidth + spacing);
+                        drawBox5x5(ctx, x, y, boxWidth, boxWidth); // Usar boxWidth como altura también
+                    }
+                }
+                
+                // Información de página
+                ctx.fillStyle = "#999999";
+                ctx.font = "10px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("Hoja de Práctica - Cajas 5x5", pageWidth / 2, pageHeight - 20);
+            }
+            
+            // Función para actualizar la vista previa
+            function updatePreview() {
+                const options = {
+                    lineColor: lineColorInput.value,
+                    lineWidth: parseFloat(lineWidthInput.value),
+                    numRows: parseInt(numRowsInput.value),
+                    boxSize: parseInt(boxSizeInput.value),
+                    includeHeader: includeHeaderSelect.value === 'true'
+                };
+                
+                drawPage(ctx, options);
+            }
+            
+            // Generar PDF
+            document.getElementById('generatePDF').addEventListener('click', function() {
+                const options = {
+                    lineColor: lineColorInput.value,
+                    lineWidth: parseFloat(lineWidthInput.value),
+                    numRows: parseInt(numRowsInput.value),
+                    boxSize: parseInt(boxSizeInput.value),
+                    includeHeader: includeHeaderSelect.value === 'true'
+                };
+                
+                // Crear nuevo documento PDF
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'pt',
+                    format: 'a4'
+                });
+                
+                // Crear un canvas temporal para dibujar el PDF
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 595;
+                tempCanvas.height = 842;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // Dibujar la página en el canvas temporal
+                drawPage(tempCtx, options);
+                
+                // Convertir canvas a imagen y agregarla al PDF
+                const imgData = tempCanvas.toDataURL('image/png');
+                doc.addImage(imgData, 'PNG', 0, 0, 595, 842);
+                
+                // Guardar el PDF
+                doc.save('hoja_cajas_5x5.pdf');
+            });
+            
+            // Inicializar vista previa
+            updatePreview();
+        };
+    </script>
+</body>
+</html>
