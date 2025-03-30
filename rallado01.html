@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador de Hojas con Cajas 5x5</title>
+    <title>Generador de Hojas con Cajas NxN</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
@@ -94,7 +94,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Generador de Hojas con Cajas 5x5</h1>
+        <h1>Generador de Hojas con Cajas NxN</h1>
         
         <div class="controls">
             <div class="control-group">
@@ -113,6 +113,11 @@
                 <input type="number" id="numRows" min="1" max="6" value="5">
             </div>
             
+            <div class="control-group">
+                <label for="gridSize">Número de divisiones (N):</label>
+                <input type="number" id="gridSize" min="2" max="10" value="5">
+            </div>
+
             <div class="control-group">
                 <label for="boxSize">Tamaño de las cajas (mm):</label>
                 <input type="number" id="boxSize" min="20" max="40" value="30">
@@ -153,6 +158,7 @@
             const lineWidthInput = document.getElementById('lineWidth');
             const lineWidthValue = document.getElementById('lineWidthValue');
             const numRowsInput = document.getElementById('numRows');
+            const gridSizeInput = document.getElementById('gridSize');
             const boxSizeInput = document.getElementById('boxSize');
             const includeHeaderSelect = document.getElementById('includeHeader');
             
@@ -165,26 +171,27 @@
             // Actualizar vista previa cuando cambian los controles
             lineColorInput.addEventListener('input', updatePreview);
             numRowsInput.addEventListener('input', updatePreview);
+            gridSizeInput.addEventListener('input', updatePreview);
             boxSizeInput.addEventListener('input', updatePreview);
             includeHeaderSelect.addEventListener('change', updatePreview);
             
-            // Función para dibujar una caja 5x5
-            function drawBox5x5(ctx, x, y, width, height) {
+            // Función para dibujar una caja NxN
+            function drawBoxNxN(ctx, x, y, width, height, n) {
                 // Marco exterior
                 ctx.strokeRect(x, y, width, height);
                 
-                // Líneas verticales interiores (4 líneas para crear 5 columnas)
-                const cellWidth = width / 5;
-                for (let i = 1; i < 5; i++) {
+                // Líneas verticales interiores
+                const cellWidth = width / n;
+                for (let i = 1; i < n; i++) {
                     ctx.beginPath();
                     ctx.moveTo(x + i * cellWidth, y);
                     ctx.lineTo(x + i * cellWidth, y + height);
                     ctx.stroke();
                 }
                 
-                // Líneas horizontales interiores (4 líneas para crear 5 filas)
-                const cellHeight = height / 5;
-                for (let i = 1; i < 5; i++) {
+                // Líneas horizontales interiores
+                const cellHeight = height / n;
+                for (let i = 1; i < n; i++) {
                     ctx.beginPath();
                     ctx.moveTo(x, y + i * cellHeight);
                     ctx.lineTo(x + width, y + i * cellHeight);
@@ -192,9 +199,9 @@
                 }
             }
             
-            // Función para dibujar la página con cajas 4x4
+            // Función para dibujar la página con cajas NxN
             function drawPage(ctx, options) {
-                const { lineColor, lineWidth, numRows, boxSize, includeHeader } = options;
+                const { lineColor, lineWidth, numRows, boxSize, includeHeader, gridSize } = options;
                 
                 // Limpiar canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -259,7 +266,7 @@
                     // Dibujar las cajas en esta fila
                     for (let col = 0; col < numBoxesPerRow; col++) {
                         const x = margin + extraMargin + col * (boxWidth + spacing);
-                        drawBox5x5(ctx, x, y, boxWidth, boxWidth); // Usar boxWidth como altura también
+                        drawBoxNxN(ctx, x, y, boxWidth, boxWidth, parseInt(gridSizeInput.value)); // Usar boxWidth como altura también
                     }
                 }
                 
@@ -267,7 +274,7 @@
                 ctx.fillStyle = "#999999";
                 ctx.font = "10px Arial";
                 ctx.textAlign = "center";
-                ctx.fillText("Hoja de Práctica - Cajas 5x5", pageWidth / 2, pageHeight - 20);
+                ctx.fillText(`Hoja de Práctica - Cajas ${gridSizeInput.value}x${gridSizeInput.value}`, pageWidth / 2, pageHeight - 20);
             }
             
             // Función para actualizar la vista previa
@@ -277,7 +284,8 @@
                     lineWidth: parseFloat(lineWidthInput.value),
                     numRows: parseInt(numRowsInput.value),
                     boxSize: parseInt(boxSizeInput.value),
-                    includeHeader: includeHeaderSelect.value === 'true'
+                    includeHeader: includeHeaderSelect.value === 'true',
+                    gridSize: parseInt(gridSizeInput.value)
                 };
                 
                 drawPage(ctx, options);
@@ -290,7 +298,8 @@
                     lineWidth: parseFloat(lineWidthInput.value),
                     numRows: parseInt(numRowsInput.value),
                     boxSize: parseInt(boxSizeInput.value),
-                    includeHeader: includeHeaderSelect.value === 'true'
+                    includeHeader: includeHeaderSelect.value === 'true',
+                    gridSize: parseInt(gridSizeInput.value)
                 };
                 
                 // Crear nuevo documento PDF
@@ -314,7 +323,8 @@
                 doc.addImage(imgData, 'PNG', 0, 0, 595, 842);
                 
                 // Guardar el PDF
-                doc.save('hoja_cajas_5x5.pdf');
+                const n = gridSizeInput.value;
+                doc.save(`hoja_cajas_${n}x${n}.pdf`);
             });
             
             // Inicializar vista previa
